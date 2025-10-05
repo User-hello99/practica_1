@@ -1,13 +1,18 @@
 from tkinter import *
 from tkinter import ttk
 import sys
+import csv
+
 
 #GLOBAL VALUES#    
 terminal_name = "VFS"
 in_name = terminal_name+":~@"
 clicked_commands = [""]
+vfs_data = {}
+
 
 #GLOBAL VALUES#
+
 
 def parse(input_string):
     args = []
@@ -29,7 +34,41 @@ def parse(input_string):
     
     return args
 
+def load_vfs():
+    global vfs_data
+    try:
+        with open("vfs.csv", 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) >= 2:
+                    vfs_data[row[0]] = row[1]
+        return f"VFS loaded: {len(vfs_data)} files"
+    except:
+        return "Error loading VFS"
+
+def st_scripts():
+    f = open("scripts/start.sh","r", encoding = "UTF-8").readlines()
+    for j in f:
+        if "#" in j:
+            continue
+        else:
+            comm = parse(j.split("\n")[0])
+            command_name = comm[0]
+            command_args = comm[1:]
+            yield (command_name,command_args)        
+    
 #COMMANDS#
+
+def cat(args):
+    if not vfs_data:
+        return "VFS not loaded"
+    if not args:
+        return "Specify file"
+    if args[0] in vfs_data:
+        return vfs_data[args[0]]
+    return f"File {args[0]} not found"
+
+
 def cd(args):
     if len(args) > 1:
         return "Error: Too many arguments"
@@ -39,10 +78,9 @@ def cd(args):
 
 
 def ls(args):
-    if len(args) > 1:
-        return "Error: Too many arguments"
-
-    return f"Return all files from directory"
+    if vfs_data:
+        return "\n".join(vfs_data.keys())
+    return "No files"
 
 def cexit(args):
     sys.exit()
@@ -53,7 +91,7 @@ def clear(editor):
 def echo(args):
     return " ".join(args)
 
-commands = {"cd":cd,"ls":ls,"exit":cexit,"echo":echo}
+commands = {"cd":cd,"ls":ls,"exit":cexit,"echo":echo,"cat":cat}
 #COMMANDS#    
 
 
@@ -117,42 +155,31 @@ def on_enter(event):
        return "break"
        
 
+
 def do_command(editor, argv):
     for i in argv[1:]:
-        
-        if i == "--scripts":
-             f = open("scripts/start.sh","r", encoding = "UTF-8").readlines()
-             
-             for i in f:
-                
-                 if "#" in i:
-                     continue
-                 else:
-                     args = parse(i.split("\n")[0])
-                     command_name = args[0]
-                     command_args = args[1:]
-                     editor.insert(END,'\n'+commands[command_name](command_args))
-                     editor.insert(END, f"\n{in_name}")
-         
-
-        if i == "--vfs":
-            pass
-
-        else:
-            print("parametr not defined")
-            break
-
+        print(i)
+        if i == "--script":
+            for j in st_scripts():
+                editor.insert(END,'\n'+commands[j[0]](j[1]))
+                editor.insert(END, f"\n{in_name}")
             
-    
+                    
+        elif i == "--vfs":
+            result = load_vfs()
+            editor.insert(END, f"\n{result}")
+            editor.insert(END, f"\n{in_name}")
+            
+        else:
+            print("parametrs not definded")
 
 def main():
     global editor
-
-    
     
     root = Tk()
     root.title(terminal_name)
     root.geometry("700x400")
+    root.resizable(False, False)
     root.grid_columnconfigure(0, weight = 1)
     root.grid_rowconfigure(0, weight = 1)
  
@@ -178,7 +205,7 @@ def main():
 if __name__ == "__main__":
     if len(sys.argv)<2 or len(sys.argv)>3:
         print("Usage: python emulator.py <parametrs>")
-        sys.exit(1)
+        
     main()
         
     
