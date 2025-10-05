@@ -1,3 +1,5 @@
-file1.txt,Hello from file 1
-readme.txt,Welcome to VFS
-test.txt,This is test file
+/,file1.txt,Hello from file 1
+/,file2.txt,This is file 2  
+/,readme.txt,Welcome to VFS system
+/home,document.txt,User document content
+/home,notes.txt,Important notes

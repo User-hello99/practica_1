@@ -7,8 +7,10 @@ import csv
 #GLOBAL VALUES#    
 terminal_name = "VFS"
 in_name = terminal_name+":~@"
+in_name_before = in_name
 clicked_commands = [""]
 vfs_data = {}
+current_path = "/"
 
 
 #GLOBAL VALUES#
@@ -37,14 +39,19 @@ def parse(input_string):
 def load_vfs():
     global vfs_data
     try:
+        vfs_data = {}
         with open("vfs.csv", 'r') as f:
             reader = csv.reader(f)
             for row in reader:
-                if len(row) >= 2:
-                    vfs_data[row[0]] = row[1]
+                if len(row) == 3:  
+                    path = row[0]
+                    filename = row[1]
+                    content = row[2]
+                    full_path = path.rstrip('/') + '/' + filename
+                    vfs_data[full_path] = content
         return f"VFS loaded: {len(vfs_data)} files"
-    except:
-        return "Error loading VFS"
+    except Exception as e:
+        return f"Error loading VFS: {str(e)}"
 
 def st_scripts():
     f = open("scripts/start.sh","r", encoding = "UTF-8").readlines()
@@ -55,32 +62,77 @@ def st_scripts():
             comm = parse(j.split("\n")[0])
             command_name = comm[0]
             command_args = comm[1:]
-            yield (command_name,command_args)        
+            yield (j,command_name,command_args)        
     
 #COMMANDS#
+
+def cd(args):
+    global current_path, in_name
+    if len(args) > 1:
+        return "Error: Too many arguments"
+    
+    if not args:
+        current_path = "/"
+        in_name = f"{terminal_name}:~@"
+        return ""
+    
+    new_path = args[0]
+    if new_path == "..":
+        if current_path != "/":
+            parts = current_path.rstrip('/').split('/')
+            current_path = '/'.join(parts[:-1]) or "/"
+            in_name = f"{terminal_name}:~{current_path}@" if current_path != "/" else f"{terminal_name}:~@"
+        return ""
+    else:
+
+        target_path = current_path.rstrip('/') + '/' + new_path
+        dir_exists = any(path.startswith(target_path + '/') for path in vfs_data.keys())
+        
+        if dir_exists or new_path == "home":  # временно для теста
+            current_path = target_path
+            in_name = f"{terminal_name}:~{current_path}@" if current_path != "/" else f"{terminal_name}:~@"
+            return f"Go to directory: {current_path}"
+        else:
+            return f"Error: Directory '{new_path}' not found"
+
+def ls(args):
+    if not vfs_data:
+        return "No files"
+    
+    target_path = current_path
+    if args:
+        target_path = args[0] if args[0].startswith("/") else current_path.rstrip('/') + '/' + args[0]
+    
+    files = []
+    for full_path in vfs_data.keys():
+        dir_path = '/'.join(full_path.split('/')[:-1]) or "/"
+        filename = full_path.split('/')[-1]
+        
+        if dir_path == target_path:
+            files.append(filename)
+        else:
+            if dir_path not in files and dir_path!= "/":
+                files.append(dir_path)
+    
+    if files:
+        return "\n".join(files)
+    return "Directory is empty"
+
 
 def cat(args):
     if not vfs_data:
         return "VFS not loaded"
     if not args:
         return "Specify file"
-    if args[0] in vfs_data:
-        return vfs_data[args[0]]
-    return f"File {args[0]} not found"
-
-
-def cd(args):
-    if len(args) > 1:
-        return "Error: Too many arguments"
     
-    directory = args[0] if args else "~"
-    return f"Go to directory: {directory}"
+    filename = args[0]
+    full_path = current_path.rstrip('/') + '/' + filename
+    
+    if full_path in vfs_data:
+        return vfs_data[full_path]
+    
+    return f"File {filename} not found"
 
-
-def ls(args):
-    if vfs_data:
-        return "\n".join(vfs_data.keys())
-    return "No files"
 
 def cexit(args):
     sys.exit()
@@ -88,10 +140,32 @@ def cexit(args):
 def clear(editor):
     editor.delete("1.0",END)
     editor.insert(END, f"{in_name}")
+
 def echo(args):
     return " ".join(args)
 
-commands = {"cd":cd,"ls":ls,"exit":cexit,"echo":echo,"cat":cat}
+def pwd(args):
+    return current_path
+
+def du(args):
+    if not vfs_data:
+        return "VFS not loaded"
+    
+    total_size = 0
+    for content in vfs_data.values():
+        total_size += len(str(content))
+    
+    return f"Total size: {total_size} bytes"
+
+
+commands = {"cd":cd,
+            "ls":ls,
+            "exit":cexit,
+            "echo":echo,
+            "cat":cat,
+            "pwd":pwd,
+            "du":du}
+
 #COMMANDS#    
 
 
@@ -136,9 +210,10 @@ def on_enter(event):
            command_name = args[0]
            command_args = args[1:]
            if command_name in commands:
-               editor.insert(END,'\n'+commands[command_name](command_args))
 
+               editor.insert(END,'\n'+commands[command_name](command_args))
                editor.insert(END, f"\n{in_name}")
+               
            elif command_name == "clear":
                clear(editor)
            else:
@@ -160,8 +235,10 @@ def do_command(editor, argv):
     for i in argv[1:]:
         print(i)
         if i == "--script":
+            
             for j in st_scripts():
-                editor.insert(END,'\n'+commands[j[0]](j[1]))
+                editor.insert(END,j[0])
+                editor.insert(END,"\n"+commands[j[1]](j[2]))
                 editor.insert(END, f"\n{in_name}")
             
                     
@@ -188,7 +265,7 @@ def main():
      
     ys = ttk.Scrollbar(orient = "vertical", command = editor.yview)
     ys.grid(column = 1, row = 0, sticky = NS)
-    editor.insert("1.0", terminal_name+":~@")
+    editor.insert("1.0", in_name)
    
     editor.bind("<BackSpace>", on_back)
     editor.bind("<Return>", on_enter)
@@ -205,7 +282,8 @@ def main():
 if __name__ == "__main__":
     if len(sys.argv)<2 or len(sys.argv)>3:
         print("Usage: python emulator.py <parametrs>")
-        
+
+        sys.exit(1)
     main()
         
     

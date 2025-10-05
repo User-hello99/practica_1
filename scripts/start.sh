@@ -1,5 +1,12 @@
-#scripts for test
-echo "Привет!"
+# test
+echo "Testing commands"
+pwd
 ls
-cd /home
-echo "start script"
+cd home
+pwd
+ls
+cat document.txt
+cd ..
+pwd
+du
+echo "Testing completed"
