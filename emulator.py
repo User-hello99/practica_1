@@ -6,6 +6,7 @@ import sys
 terminal_name = "VFS"
 in_name = terminal_name+":~@"
 clicked_commands = [""]
+
 #GLOBAL VALUES#
 
 def parse(input_string):
@@ -110,19 +111,48 @@ def on_enter(event):
 
            line_num ,word_num = editor.index("insert").split('.')
 
-           
+       else:
+            editor.insert(END, f"\n{in_name}")
 
        return "break"
        
+
+def do_command(editor, argv):
+    for i in argv[1:]:
+        
+        if i == "--scripts":
+             f = open("scripts/start.sh","r", encoding = "UTF-8").readlines()
+             
+             for i in f:
+                
+                 if "#" in i:
+                     continue
+                 else:
+                     args = parse(i.split("\n")[0])
+                     command_name = args[0]
+                     command_args = args[1:]
+                     editor.insert(END,'\n'+commands[command_name](command_args))
+                     editor.insert(END, f"\n{in_name}")
+         
+
+        if i == "--vfs":
+            pass
+
+        else:
+            print("parametr not defined")
+            break
+
+            
     
 
 def main():
     global editor
+
+    
     
     root = Tk()
     root.title(terminal_name)
     root.geometry("700x400")
-    root.resizable(False, False)
     root.grid_columnconfigure(0, weight = 1)
     root.grid_rowconfigure(0, weight = 1)
  
@@ -139,10 +169,16 @@ def main():
 
     editor["yscrollcommand"] = ys.set
 
+    do_command(editor, sys.argv)
     
     root.mainloop()
 
 
     
 if __name__ == "__main__":
+    if len(sys.argv)<2 or len(sys.argv)>3:
+        print("Usage: python emulator.py <parametrs>")
+        sys.exit(1)
     main()
+        
+    
