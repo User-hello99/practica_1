@@ -1,12 +1,8 @@
 # test
 echo "Testing commands"
-pwd
+touch newfile.txt
 ls
-cd home
-pwd
+chown user newfile.txt
+touch file2.txt
 ls
-cat document.txt
-cd ..
-pwd
-du
 echo "Testing completed"

@@ -10,6 +10,7 @@ in_name = terminal_name+":~@"
 in_name_before = in_name
 clicked_commands = [""]
 vfs_data = {}
+file_owners = {}
 current_path = "/"
 
 
@@ -158,13 +159,46 @@ def du(args):
     return f"Total size: {total_size} bytes"
 
 
+def chown(args):
+    if len(args) < 2:
+        return "Error: chown <OWNER> <FILE>"
+    
+    owner, filename = args[0], args[1]
+    full_path = current_path.rstrip('/') + '/' + filename
+    
+    if full_path not in vfs_data:
+        return f"File '{filename}' not found"
+    
+    file_owners[full_path] = owner
+    return f"Owner changed to '{owner}'"
+
+def touch(args):
+    if not args:
+        return "Error: touch FILENAME"
+    
+    filename = args[0]
+    full_path = current_path.rstrip('/') + '/' + filename
+    print( current_path)
+    print( current_path.rstrip('/'))
+    print(current_path.rstrip('/') + '/')
+    if full_path in vfs_data:
+        return f"File '{filename}' exists"
+    
+    vfs_data[full_path] = ""
+    file_owners[full_path] = "root"
+
+    return f"File '{filename}' created"
+
+
 commands = {"cd":cd,
             "ls":ls,
             "exit":cexit,
             "echo":echo,
             "cat":cat,
             "pwd":pwd,
-            "du":du}
+            "du":du,
+            "chown":chown,
+            "touch":touch}
 
 #COMMANDS#    
 
