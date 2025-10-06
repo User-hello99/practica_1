@@ -12,7 +12,7 @@ clicked_commands = [""]
 vfs_data = {}
 file_owners = {}
 current_path = "/"
-
+users = []
 
 #GLOBAL VALUES#
 
@@ -37,25 +37,27 @@ def parse(input_string):
     
     return args
 
-def load_vfs():
+def load_vfs(argv):
     global vfs_data
     try:
         vfs_data = {}
-        with open("vfs.csv", 'r') as f:
+        with open(argv, 'r') as f:
             reader = csv.reader(f)
+            
             for row in reader:
-                if len(row) == 3:  
+                if len(row) == 4:  
                     path = row[0]
                     filename = row[1]
                     content = row[2]
+                    user = row[3]
                     full_path = path.rstrip('/') + '/' + filename
-                    vfs_data[full_path] = content
+                    vfs_data[full_path] = [content,user]
         return f"VFS loaded: {len(vfs_data)} files"
     except Exception as e:
         return f"Error loading VFS: {str(e)}"
 
-def st_scripts():
-    f = open("scripts/start.sh","r", encoding = "UTF-8").readlines()
+def st_scripts(argv):
+    f = open(argv,"r", encoding = "UTF-8").readlines()
     for j in f:
         if "#" in j:
             continue
@@ -101,9 +103,11 @@ def ls(args):
         return "No files"
     
     target_path = current_path
-    if args:
+    if len(args) == 1:
         target_path = args[0] if args[0].startswith("/") else current_path.rstrip('/') + '/' + args[0]
-    
+    if len(args)==2 and args[0] == "-l":
+        target_path = args[1] if args[1].startswith("/") else current_path.rstrip('/') + '/' + args[1]
+        return vfs_data[target_path][1]
     files = []
     for full_path in vfs_data.keys():
         dir_path = '/'.join(full_path.split('/')[:-1]) or "/"
@@ -130,7 +134,7 @@ def cat(args):
     full_path = current_path.rstrip('/') + '/' + filename
     
     if full_path in vfs_data:
-        return vfs_data[full_path]
+        return vfs_data[full_path][0]
     
     return f"File {filename} not found"
 
@@ -154,7 +158,7 @@ def du(args):
     
     total_size = 0
     for content in vfs_data.values():
-        total_size += len(str(content))
+        total_size += len(str(content[0]))
     
     return f"Total size: {total_size} bytes"
 
@@ -169,7 +173,7 @@ def chown(args):
     if full_path not in vfs_data:
         return f"File '{filename}' not found"
     
-    file_owners[full_path] = owner
+    vfs_data[full_path][1] = owner
     return f"Owner changed to '{owner}'"
 
 def touch(args):
@@ -178,9 +182,7 @@ def touch(args):
     
     filename = args[0]
     full_path = current_path.rstrip('/') + '/' + filename
-    print( current_path)
-    print( current_path.rstrip('/'))
-    print(current_path.rstrip('/') + '/')
+
     if full_path in vfs_data:
         return f"File '{filename}' exists"
     
@@ -266,23 +268,66 @@ def on_enter(event):
 
 
 def do_command(editor, argv):
-    for i in argv[1:]:
-        print(i)
-        if i == "--script":
-            
-            for j in st_scripts():
-                editor.insert(END,j[0])
-                editor.insert(END,"\n"+commands[j[1]](j[2]))
+    print("Arguments:", argv)
+    
+   
+    i = 1
+    while i < len(argv):
+        print(f"Processing argument {i}: {argv[i]}")
+        
+        if argv[i] == "--script":
+            if i + 1 < len(argv) and argv[i + 1] != "--vfs":
+                script_file = argv[i + 1]
+                print(f"Loading script: {script_file}")
+                
+                try:
+                    for j in st_scripts(script_file):
+                        editor.insert(END, j[0])
+                        editor.insert(END, "\n" + commands[j[1]](j[2]))
+                        editor.insert(END, f"\n{in_name}")
+                        editor.see(END)  # Прокрутка к концу
+                        editor.update()   # Обновление интерфейса
+                except Exception as e:
+                    editor.insert(END, f"\nError loading script: {str(e)}")
+                    editor.insert(END, f"\n{in_name}")
+                
+                i += 2  
+                
+            else:
+                editor.insert(END, "\nError: --script requires a filename")
                 editor.insert(END, f"\n{in_name}")
-            
-                    
-        elif i == "--vfs":
-            result = load_vfs()
-            editor.insert(END, f"\n{result}")
-            editor.insert(END, f"\n{in_name}")
-            
+                return
+                
+        elif argv[i] == "--vfs":
+            if i + 1 < len(argv) and argv[i + 1] != "--script":
+                vfs_file = argv[i + 1]
+                print(f"Loading VFS: {vfs_file}")
+                
+                try:
+                    result = load_vfs(vfs_file)
+                    editor.insert(END, f"\n{result}")
+                    editor.insert(END, f"\n{in_name}")
+                except Exception as e:
+                    editor.insert(END, f"\nError loading VFS: {str(e)}")
+                    editor.insert(END, f"\n{in_name}")
+                
+                i += 2  
+                
+            else:
+                editor.insert(END, "\nError: --vfs requires a filename")
+                editor.insert(END, f"\n{in_name}")
+                return
+                
         else:
-            print("parametrs not definded")
+            # Неизвестный аргумент
+            editor.insert(END, f"\nUnknown argument: {argv[i]}")
+            editor.insert(END, f"\n{in_name}")
+            i += 1
+
+
+       
+                
+        
 
 def main():
     global editor

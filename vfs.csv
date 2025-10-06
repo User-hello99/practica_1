@@ -1,5 +1,5 @@
-/,file1.txt,Hello from file 1
-/,file2.txt,This is file 2  
-/,readme.txt,Welcome to VFS system
-/home,document.txt,User document content
-/home,notes.txt,Important notes
+/,file1.txt,Hello from file 1,root
+/,file2.txt,This is file 2,root
+/,readme.txt,Welcome to VFS system,root
+/home,document.txt,User document content,user
+/home,notes.txt,Important notes,user
